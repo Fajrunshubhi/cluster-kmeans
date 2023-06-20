@@ -1,0 +1,221 @@
+---
+title: "Tubes Fundamen Sains Data"
+output:
+  html_document: default
+  pdf_document: default
+---
+
+kelompok: <br>
+20523164 FAJRUN SHUBHI <br>
+20523181 MUHAMMAD IVANDER RAMUSTA <br>
+20523035 MOCHAMAD FACHRUL ANDRIANSYAH <br>
+
+
+
+
+Clustering sebuah dataset country menggunakan K-MEANS, clustering ini bertujuan untuk mengkategotikan negara menggunakan faktor sosial ekonomi dan kesehatan yang menentukan pembangunan negara secara keseluruhan.<br>
+sumber: kaggle.com<br>
+
+pada dataset ini terdapat 10 columns(atribut) dan 167 baris <br>
+country: nama-nama negara<br>
+child_mort: Kematian anak di bawah usia 5 tahun<br>
+export: Ekspor barang dan jasa per kapita<br>
+healt: Total pengeluaran kesehatan per kapita<br>
+imports: Impor barang dan jasa per kapita<br>
+income: Pendapatan bersih per orang<br>
+inflation: Pengukuran tingkat pertumbuhan tahunan<br>
+life_expec: Jumlah tahun rata-rata seorang anak yang baru lahir akan hidup<br>
+total_fer: Jumlah anak yang akan dilahirkan<br>
+gdpp: PDB per kapita<br>
+
+
+import dulu library yang akan digunakan untuk clustering k-means 
+```{r}
+library(tidyverse)
+library(cluster)
+library(factoextra)
+library(ggplot2)
+```
+
+
+kemudian import dataset yang akan digunakan dan tampilkan dataset tersebut.
+```{r}
+myData <- read.csv("Country-data.csv")
+myData
+```
+
+
+kita bisa lihat 6 data pertama dari dataset dengan perintah head()
+```{r}
+head(myData)
+```
+
+
+lakukan perintah berikut untuk melihat statistik dari datasetnya yang ditampilkan percolumn.
+```{r}
+summary(myData)
+```
+
+
+
+bisa juga lakukan perintah str() untuk melihat tipe data tiap columns
+```{r}
+str(myData)
+```
+
+
+kemudian lakukan perubahan menjadi sebuah data frame pada data utama
+pada baris ke-2 itu digunakan untuk mengganti rownames dari columns country
+dan baris 3 untuk menghapus columns country
+```{r}
+myData.new <- as.data.frame(myData) # Transforming our main data in a data frame
+myData.new <- myData[,-1]
+myData.new
+
+```
+
+membuat histogram dari masing-masing atribut.
+```{r}
+myData.new %>%
+  gather(Attributes, value, 1:9) %>%
+  ggplot(aes(x=value, fill=Attributes)) +
+  geom_histogram(colour="white", show.legend=FALSE) +
+  facet_wrap(~Attributes, scales="free_x") +
+  labs(x="Values", y="Frequency",
+       title="Country Data - Histograms") +
+  theme_bw()
+```
+
+
+
+Mencari K(jumlah cluster) yang Optimal
+
+Dalam menentukan k pada cluster, ada beberapa pendekatan yang dapat digunakan yaitu : 1. Silhouette 
+2. Elbow 
+3. Gap Statistic
+
+disini kami mencoba untuk menggunakan metode elbow, Berdasarkan grafik dibawah, terlihat penurunan paling tajam membentuk elbow atau mementuk siku pada k=2. Sehingga untuk metode elbow diperoleh hasil k optimal 2
+
+```{r}
+fviz_nbclust(myData.new, kmeans, method = "wss")
+```
+
+
+kami juga mencoba dengan menggunakan metode silhouette
+
+Pendekatan silhouette menggunakan rata-rata nilai cluster untuk menduga nilai k optimum. Semakin tinggi nilai rata-ratanya maka akan semakin baik clusternya. Berdasarkan grafik silhouette yang terbentuk, diperoleh banyak cluster optimal seanyak 2. Hasil ini sama dengan penentuan k optimal menggunakan metode elbow
+
+```{r}
+fviz_nbclust(myData.new, kmeans, method = "silhouette")
+```
+
+
+disini kami mencoba untuk melakukan 2 clustering terhadap masing2 2 atribut dengan membagi 2 cluster(centers)
+1.  clustering data angka kematian (child mort) dan angka kelahiran (total fer) suatu negara
+2.  clustering data income dan inflation suatu negara
+
+```{r}
+set.seed(123)
+result <- kmeans(myData.new, centers = 2, nstart = 25)
+
+plot(myData.new[,c(1,8)], col=result$cluster)
+
+plot(myData.new[,c(5,6)], col=result$cluster)
+
+
+```
+
+
+Visualisasi menggunakan ggplot2
+
+Di bawah ini, kita akan memvisualisasikan hasil clustering di atas, menggunakan package ggplot2. Baris ke-1 menjadikan tipe data cluster dari numerik ke diskret (kategori/factor)
+
+```{r}
+myData.new$cluster <- factor(result$cluster)
+centers <- as.data.frame(result$centers)
+```
+
+```{r}
+ggplot() + 
+  geom_point(data=myData.new, aes(x=child_mort, y=total_fer,color=cluster))  +
+  geom_point(data=centers, aes(x=child_mort, y=total_fer, color="Center"), 
+             size=52, alpha=.3, show.legend = FALSE)
+```
+
+```{r}
+ggplot() + 
+  geom_point(data=myData.new, aes(x=income, y=inflation,color=cluster))  +
+  geom_point(data=centers, aes(x=income, y=inflation, color="Center"), 
+             size=52, alpha=.3, show.legend = FALSE)
+```
+
+
+Berbeda dengan clustering sebelumnya, disini kita membuat clustering dari seluruh data yang ada pada dataset, kami membagi menjadi 2 cluster sesuai dengan k optimal
+dengan menggunakan fviz_cluster
+```{r}
+fviz_cluster(result, myData[, -1], ellipse.type = "norm")
+```
+
+```{r}
+fviz_cluster(result, myData[, -1],
+   palette = "Set2", ggtheme = theme_minimal())
+```
+
+Untuk melihat nilai apa saja yang dikembalikan oleh fungsi kmeans, dapat dilihat melalui
+```{r}
+attributes(result)$names
+```
+
+dan untuk memanggil nilai tertentu di atas, dapat dilakukan dengan cara result$cluster, result$centers, result$size, dan seterusnya
+
+```{r}
+# Clusters to which each point is associated
+result$cluster
+```
+```{r}
+# Cluster centers
+result$centers
+```
+
+```{r}
+# Cluster Size
+result$size
+```
+
+```{r}
+# Between clusters sum of square
+result$betweenss
+```
+```{r}
+# Total with sum of square
+result$tot.withinss
+```
+
+
+kami mencoba untuk melakukan clustering dengan membagi menjadi lebih dari 2 cluster, disini kami mencoba untuk 3 cluster, 4 cluster dan 5 cluster, dan menyimpannya pada suatu variable
+
+```{r}
+result_3 <- kmeans(myData.new, centers = 3, nstart = 25)
+result_4 <- kmeans(myData.new, centers = 4, nstart = 25)
+result_5 <- kmeans(myData.new, centers = 5, nstart = 25)
+```
+
+kemudian kita melakukan clustering dengan menggunakan fviz_cluster dan memasukan variable tadi kemudian lakukan ploting.
+```{r}
+p1 <- fviz_cluster(result, geom = "point", data = myData[,-1]) + ggtitle(" K = 2")
+plot(p1)
+p2 <- fviz_cluster(result_3, geom = "point", data = myData[,-1]) + ggtitle(" K = 3")
+plot(p2)
+p3 <- fviz_cluster(result_4, geom = "point", data = myData[-1]) + ggtitle(" K = 4")
+plot(p3)
+p4 <- fviz_cluster(result_5, geom = "point", data = myData[-1]) + ggtitle(" K = 5")
+plot(p4)
+
+```
+
+Hasil plot diatas merupakan clustering datasets country dengan membagi menjadi 2, 3, 4, 5 cluster.
+
+
+Terimakasih..............
+
+
